@@ -22,9 +22,9 @@ class Avatar3D {
         this.scene.background = new THREE.Color(0x12121a);
 
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 1000);
-        this.camera.position.set(0, 0.6, 1.8);
-        this.camera.lookAt(0, 0.5, 0);
+        this.camera = new THREE.PerspectiveCamera(25, aspect, 0.1, 1000);
+        this.camera.position.set(0, 1.55, 0.8);
+        this.camera.lookAt(0, 1.5, 0);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
