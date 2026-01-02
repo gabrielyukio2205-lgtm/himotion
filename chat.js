@@ -28,6 +28,9 @@ class ChatApp {
         // Carregar histórico salvo
         this.loadHistory();
 
+        // Setup quick actions
+        this.setupQuickActions();
+
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -44,6 +47,26 @@ class ChatApp {
         });
 
         this.startLipSyncLoop();
+    }
+
+    // =========================================================================
+    // Quick Actions
+    // =========================================================================
+
+    setupQuickActions() {
+        const quickActions = document.getElementById('quick-actions');
+        if (!quickActions) return;
+
+        quickActions.addEventListener('click', (e) => {
+            const btn = e.target.closest('.quick-btn');
+            if (btn) {
+                const message = btn.dataset.message;
+                if (message) {
+                    this.chatInput.value = message;
+                    this.sendMessage();
+                }
+            }
+        });
     }
 
     // =========================================================================
@@ -147,7 +170,16 @@ class ChatApp {
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
-        messageDiv.innerHTML = `<div class="message-content">${this.escapeHtml(content)}</div>`;
+
+        // Get current time
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        messageDiv.innerHTML = `
+            <div class="message-content">${this.escapeHtml(content)}</div>
+            <div class="message-time">${timeStr}</div>
+            ${isUser ? '<div class="message-status sent"></div>' : ''}
+        `;
         this.chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
         return messageDiv;
