@@ -242,30 +242,25 @@ class Avatar3D {
                 spine.rotation.x = Math.sin(this.time * 1.2) * 0.01;
             }
 
-            // Braço esquerdo - pose relaxada (não T-pose)
+            // Braço esquerdo - pose relaxada
             const leftUpperArm = humanoid?.getNormalizedBoneNode('leftUpperArm');
             const leftLowerArm = humanoid?.getNormalizedBoneNode('leftLowerArm');
             if (leftUpperArm) {
-                // Braço mais para baixo (0.8 rad ≈ 45°)
-                leftUpperArm.rotation.z = 0.8 + Math.sin(this.time * 0.4) * 0.02;
-                leftUpperArm.rotation.y = 0.1;
+                // Braço para baixo (valores negativos)
+                leftUpperArm.rotation.z = -0.3 + Math.sin(this.time * 0.4) * 0.02;
             }
             if (leftLowerArm) {
-                // Cotovelo levemente dobrado
-                leftLowerArm.rotation.z = 0.3;
-                leftLowerArm.rotation.y = Math.sin(this.time * 0.5) * 0.02;
+                leftLowerArm.rotation.z = -0.2;
             }
 
             // Braço direito - pose relaxada
             const rightUpperArm = humanoid?.getNormalizedBoneNode('rightUpperArm');
             const rightLowerArm = humanoid?.getNormalizedBoneNode('rightLowerArm');
             if (rightUpperArm) {
-                rightUpperArm.rotation.z = -0.8 + Math.sin(this.time * 0.4 + 1) * 0.02;
-                rightUpperArm.rotation.y = -0.1;
+                rightUpperArm.rotation.z = 0.3 + Math.sin(this.time * 0.4 + 1) * 0.02;
             }
             if (rightLowerArm) {
-                rightLowerArm.rotation.z = -0.3;
-                rightLowerArm.rotation.y = Math.sin(this.time * 0.5 + 0.5) * 0.02;
+                rightLowerArm.rotation.z = 0.2;
             }
 
             // Mãos
