@@ -246,21 +246,21 @@ class Avatar3D {
             const leftUpperArm = humanoid?.getNormalizedBoneNode('leftUpperArm');
             const leftLowerArm = humanoid?.getNormalizedBoneNode('leftLowerArm');
             if (leftUpperArm) {
-                // Braço para baixo (valores negativos)
-                leftUpperArm.rotation.z = -0.3 + Math.sin(this.time * 0.4) * 0.02;
+                // Braço bem mais para baixo
+                leftUpperArm.rotation.z = -0.6 + Math.sin(this.time * 0.4) * 0.02;
             }
             if (leftLowerArm) {
-                leftLowerArm.rotation.z = -0.2;
+                leftLowerArm.rotation.z = -0.4;
             }
 
             // Braço direito - pose relaxada
             const rightUpperArm = humanoid?.getNormalizedBoneNode('rightUpperArm');
             const rightLowerArm = humanoid?.getNormalizedBoneNode('rightLowerArm');
             if (rightUpperArm) {
-                rightUpperArm.rotation.z = 0.3 + Math.sin(this.time * 0.4 + 1) * 0.02;
+                rightUpperArm.rotation.z = 0.6 + Math.sin(this.time * 0.4 + 1) * 0.02;
             }
             if (rightLowerArm) {
-                rightLowerArm.rotation.z = 0.2;
+                rightLowerArm.rotation.z = 0.4;
             }
 
             // Mãos
