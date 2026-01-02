@@ -14,8 +14,15 @@ class Avatar3D {
         this.vrm = null;
         this.mixer = null;
 
+        // Mouse tracking
+        this.mouseX = 0;
+        this.mouseY = 0;
+        this.targetMouseX = 0;
+        this.targetMouseY = 0;
+
         this.init();
         this.loadVRM();
+        this.setupMouseTracking();
         this.animate();
     }
 
@@ -59,6 +66,22 @@ class Avatar3D {
 
         // Loading indicator
         this.createLoadingIndicator();
+    }
+
+    setupMouseTracking() {
+        // Tracking do mouse no container
+        this.container.addEventListener('mousemove', (e) => {
+            const rect = this.container.getBoundingClientRect();
+            // Normalizar para -1 a 1
+            this.targetMouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            this.targetMouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        });
+
+        // Quando mouse sai, voltar ao centro gradualmente
+        this.container.addEventListener('mouseleave', () => {
+            this.targetMouseX = 0;
+            this.targetMouseY = 0;
+        });
     }
 
     createLoadingIndicator() {
@@ -188,14 +211,29 @@ class Avatar3D {
     updateIdle(dt) {
         this.time += dt;
 
+        // Interpolação suave do mouse
+        this.mouseX += (this.targetMouseX - this.mouseX) * 0.05;
+        this.mouseY += (this.targetMouseY - this.mouseY) * 0.05;
+
         if (this.vrm) {
             const humanoid = this.vrm.humanoid;
 
-            // Movimento suave da cabeça
+            // Cabeça segue o mouse!
             const head = humanoid?.getNormalizedBoneNode('head');
             if (head) {
-                head.rotation.y = Math.sin(this.time * 0.3) * 0.04;
-                head.rotation.x = Math.sin(this.time * 0.2) * 0.02;
+                // Mouse tracking (mais intenso)
+                head.rotation.y = this.mouseX * 0.4;
+                head.rotation.x = -this.mouseY * 0.2;
+                // Adiciona leve movimento idle
+                head.rotation.y += Math.sin(this.time * 0.3) * 0.02;
+                head.rotation.z = Math.sin(this.time * 0.25) * 0.02;
+            }
+
+            // Pescoço também segue um pouco
+            const neck = humanoid?.getNormalizedBoneNode('neck');
+            if (neck) {
+                neck.rotation.y = this.mouseX * 0.15;
+                neck.rotation.x = -this.mouseY * 0.1;
             }
 
             // Movimento do tronco (respiração)
