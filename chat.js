@@ -1,5 +1,5 @@
 /**
- * Chat Module - Handles communication with backend and lip sync
+ * Chat Module - Handles communication with backend and lip sync (v2 - Fixed)
  */
 
 class ChatApp {
@@ -12,7 +12,6 @@ class ChatApp {
         this.avatar = null;
         this.audioPlayer = null;
         this.visemeTimeline = [];
-        this.visemeIndex = 0;
         this.audioStartTime = 0;
 
         this.init();
@@ -42,7 +41,23 @@ class ChatApp {
         // Audio events
         this.audioPlayer.addEventListener('play', () => this.onAudioPlay());
         this.audioPlayer.addEventListener('ended', () => this.onAudioEnded());
-        this.audioPlayer.addEventListener('timeupdate', () => this.syncLipSync());
+        this.audioPlayer.addEventListener('error', (e) => {
+            console.error('Audio error:', e);
+            this.setStatus('Erro no áudio');
+        });
+
+        // Lip sync loop
+        this.startLipSyncLoop();
+    }
+
+    startLipSyncLoop() {
+        const syncLoop = () => {
+            if (this.audioPlayer && !this.audioPlayer.paused && this.visemeTimeline.length > 0) {
+                this.syncLipSync();
+            }
+            requestAnimationFrame(syncLoop);
+        };
+        syncLoop();
     }
 
     setStatus(text) {
@@ -50,6 +65,12 @@ class ChatApp {
     }
 
     addMessage(content, isUser = false) {
+        // Não adiciona mensagem vazia
+        if (!content || content.trim() === '') {
+            console.warn('Tentativa de adicionar mensagem vazia');
+            return null;
+        }
+
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
         messageDiv.innerHTML = `<div class="message-content">${this.escapeHtml(content)}</div>`;
@@ -59,6 +80,9 @@ class ChatApp {
     }
 
     addTypingIndicator() {
+        // Remove qualquer indicador existente primeiro
+        this.removeTypingIndicator();
+
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message bot typing';
         messageDiv.id = 'typing-indicator';
@@ -117,8 +141,14 @@ class ChatApp {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Erro na API');
+                let errorMsg = 'Erro na API';
+                try {
+                    const error = await response.json();
+                    errorMsg = error.detail || errorMsg;
+                } catch (e) {
+                    errorMsg = `HTTP ${response.status}`;
+                }
+                throw new Error(errorMsg);
             }
 
             const data = await response.json();
@@ -126,18 +156,32 @@ class ChatApp {
             // Remove typing indicator
             this.removeTypingIndicator();
 
-            // Add bot message
-            this.addMessage(data.text);
-            this.history.push({ role: 'assistant', content: data.text });
+            // Verifica se tem texto válido
+            if (data.text && data.text.trim() !== '') {
+                // Add bot message
+                this.addMessage(data.text);
+                this.history.push({ role: 'assistant', content: data.text });
 
-            // Setup lip sync
-            this.visemeTimeline = data.visemes;
-            this.visemeIndex = 0;
+                // Setup lip sync
+                this.visemeTimeline = data.visemes || [];
 
-            // Play audio
-            this.setStatus('Falando...');
-            this.audioPlayer.src = `data:audio/mp3;base64,${data.audio_base64}`;
-            this.audioPlayer.play();
+                // Play audio se tiver
+                if (data.audio_base64) {
+                    this.setStatus('Falando...');
+                    this.audioPlayer.src = `data:audio/mp3;base64,${data.audio_base64}`;
+
+                    try {
+                        await this.audioPlayer.play();
+                    } catch (playError) {
+                        console.error('Erro ao reproduzir áudio:', playError);
+                        this.setStatus('Pronta para conversar');
+                    }
+                } else {
+                    this.setStatus('Pronta para conversar');
+                }
+            } else {
+                throw new Error('Resposta vazia do servidor');
+            }
 
         } catch (error) {
             console.error('Chat error:', error);
@@ -153,11 +197,11 @@ class ChatApp {
 
     onAudioPlay() {
         this.audioStartTime = performance.now();
-        this.visemeIndex = 0;
     }
 
     onAudioEnded() {
         this.avatar.setViseme('X');
+        this.visemeTimeline = [];
         this.setStatus('Pronta para conversar');
     }
 
