@@ -24,9 +24,9 @@ class Avatar3D {
         this.scene.background = new THREE.Color(0x12121a);
 
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(20, aspect, 0.1, 1000);
-        this.camera.position.set(0, 1.4, 1.2);
-        this.camera.lookAt(0, 1.35, 0);
+        this.camera = new THREE.PerspectiveCamera(18, aspect, 0.1, 1000);
+        this.camera.position.set(0, 1.5, 0.9);
+        this.camera.lookAt(0, 1.45, 0);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
@@ -34,19 +34,19 @@ class Avatar3D {
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.container.appendChild(this.renderer.domElement);
 
-        // Iluminação
-        const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+        // Iluminação mais suave
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
         this.scene.add(ambient);
 
-        const main = new THREE.DirectionalLight(0xffffff, 1.0);
+        const main = new THREE.DirectionalLight(0xffffff, 0.6);
         main.position.set(1, 2, 3);
         this.scene.add(main);
 
-        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.4);
+        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.25);
         fill.position.set(-2, 1, 2);
         this.scene.add(fill);
 
-        const rim = new THREE.DirectionalLight(0xffffff, 0.5);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.2);
         rim.position.set(0, 1, -2);
         this.scene.add(rim);
 
