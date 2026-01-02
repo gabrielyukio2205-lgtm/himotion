@@ -1,21 +1,19 @@
 /**
- * 3D Avatar - Simple but Working (v4)
- * Voltando pro modelo simples que funcionava, mas melhorado
+ * 3D Avatar - GLB Model with Lip Sync (v5)
+ * Usa modelo gratuito do Ready Player Me
  */
 
 class Avatar3D {
     constructor(container) {
         this.container = container;
         this.targetViseme = 'X';
-        this.currentWeights = {
-            mouthOpen: 0,
-            mouthWide: 0,
-            mouthRound: 0,
-            lipsClosed: 0
-        };
+        this.currentWeights = {};
+        this.mixer = null;
+        this.model = null;
+        this.morphTargets = null;
 
         this.init();
-        this.createFace();
+        this.loadModel();
         this.animate();
     }
 
@@ -24,371 +22,197 @@ class Avatar3D {
         this.scene.background = new THREE.Color(0x12121a);
 
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(35, aspect, 0.1, 1000);
-        this.camera.position.set(0, 0, 5.5);
-        this.camera.lookAt(0, 0, 0);
+        this.camera = new THREE.PerspectiveCamera(30, aspect, 0.1, 1000);
+        this.camera.position.set(0, 0.6, 1.8);
+        this.camera.lookAt(0, 0.5, 0);
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.container.appendChild(this.renderer.domElement);
 
         // Iluminação
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
         this.scene.add(ambient);
 
-        const main = new THREE.DirectionalLight(0xffffff, 0.9);
-        main.position.set(1, 2, 4);
+        const main = new THREE.DirectionalLight(0xffffff, 1.0);
+        main.position.set(2, 3, 4);
         this.scene.add(main);
 
-        const fill = new THREE.DirectionalLight(0x6366f1, 0.3);
-        fill.position.set(-2, 0, 2);
+        const fill = new THREE.DirectionalLight(0x6366f1, 0.4);
+        fill.position.set(-2, 1, 2);
         this.scene.add(fill);
+
+        const back = new THREE.DirectionalLight(0xa855f7, 0.3);
+        back.position.set(0, 2, -2);
+        this.scene.add(back);
 
         window.addEventListener('resize', () => this.onResize());
 
         this.time = 0;
-        this.blinkTimer = 0;
-        this.nextBlink = 2 + Math.random() * 3;
-        this.isBlinking = false;
+        this.clock = new THREE.Clock();
+
+        // Fallback se modelo não carregar
+        this.createFallbackHead();
     }
 
-    createFace() {
-        this.head = new THREE.Group();
-        this.head.position.y = -0.1;
-        this.scene.add(this.head);
+    createFallbackHead() {
+        // Cabeça simples como fallback enquanto carrega
+        const geo = new THREE.SphereGeometry(0.25, 16, 12);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffdbcc });
+        this.fallbackHead = new THREE.Mesh(geo, mat);
+        this.fallbackHead.position.y = 0.5;
+        this.scene.add(this.fallbackHead);
 
-        const skinColor = 0xffdbcc;
-        const skinMat = new THREE.MeshStandardMaterial({
-            color: skinColor,
-            roughness: 0.7,
-            flatShading: true
-        });
-
-        // CABEÇA - Icosaedro achatado
-        const headGeo = new THREE.IcosahedronGeometry(1, 1);
-        this.headMesh = new THREE.Mesh(headGeo, skinMat);
-        this.headMesh.scale.set(0.85, 1.0, 0.75);
-        this.head.add(this.headMesh);
-
-        // OLHOS
-        this.createEyes();
-
-        // SOBRANCELHAS
-        this.createBrows();
-
-        // NARIZ
-        const noseGeo = new THREE.ConeGeometry(0.08, 0.22, 4);
-        const noseMat = new THREE.MeshStandardMaterial({ color: 0xeec8b8, flatShading: true });
-        this.nose = new THREE.Mesh(noseGeo, noseMat);
-        this.nose.position.set(0, -0.05, 0.72);
-        this.nose.rotation.x = -Math.PI / 2 + 0.2;
-        this.head.add(this.nose);
-
-        // BOCA
-        this.createMouth();
-
-        // CABELO
-        this.createHair();
-
-        // BOCHECHAS
-        this.createCheeks();
+        // Loading indicator
+        const textGeo = new THREE.BoxGeometry(0.3, 0.05, 0.01);
+        const textMat = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
+        this.loadingBar = new THREE.Mesh(textGeo, textMat);
+        this.loadingBar.position.set(0, 0.1, 0.3);
+        this.scene.add(this.loadingBar);
     }
 
-    createEyes() {
-        const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-        const pupilMat = new THREE.MeshStandardMaterial({ color: 0x2d1810 });
-        const irisMat = new THREE.MeshStandardMaterial({ color: 0x5588cc });
+    async loadModel() {
+        // URL do modelo Ready Player Me (avatar genérico gratuito)
+        // Este é um modelo público de demonstração
+        const modelUrl = 'https://models.readyplayer.me/64bfa15f0e72c63d7c3934a6.glb?morphTargets=ARKit,Oculus Visemes';
 
-        // Olho esquerdo
-        this.leftEyeGroup = new THREE.Group();
-        this.leftEyeGroup.position.set(-0.28, 0.18, 0.6);
+        // Carregar GLTFLoader dinamicamente
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+        document.head.appendChild(script);
 
-        const leftWhite = new THREE.Mesh(
-            new THREE.SphereGeometry(0.13, 16, 12),
-            eyeWhiteMat
-        );
-        this.leftEyeGroup.add(leftWhite);
+        script.onload = () => {
+            const loader = new THREE.GLTFLoader();
 
-        const leftIris = new THREE.Mesh(
-            new THREE.SphereGeometry(0.08, 12, 8),
-            irisMat
-        );
-        leftIris.position.z = 0.08;
-        this.leftEyeGroup.add(leftIris);
+            loader.load(
+                modelUrl,
+                (gltf) => {
+                    console.log('Modelo carregado!', gltf);
 
-        this.leftPupil = new THREE.Mesh(
-            new THREE.SphereGeometry(0.04, 8, 6),
-            pupilMat
-        );
-        this.leftPupil.position.z = 0.12;
-        this.leftEyeGroup.add(this.leftPupil);
+                    // Remover fallback
+                    if (this.fallbackHead) {
+                        this.scene.remove(this.fallbackHead);
+                        this.scene.remove(this.loadingBar);
+                    }
 
-        // Brilho
-        const shineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const leftShine = new THREE.Mesh(
-            new THREE.SphereGeometry(0.02, 6, 4),
-            shineMat
-        );
-        leftShine.position.set(0.03, 0.03, 0.13);
-        this.leftEyeGroup.add(leftShine);
+                    this.model = gltf.scene;
+                    this.model.position.y = 0;
+                    this.model.rotation.y = 0;
+                    this.scene.add(this.model);
 
-        // Olho direito
-        this.rightEyeGroup = new THREE.Group();
-        this.rightEyeGroup.position.set(0.28, 0.18, 0.6);
+                    // Encontrar mesh com morph targets
+                    this.model.traverse((child) => {
+                        if (child.isMesh && child.morphTargetInfluences) {
+                            console.log('Morph targets encontrados:', child.morphTargetDictionary);
+                            this.morphMesh = child;
+                            this.morphDict = child.morphTargetDictionary;
+                        }
+                    });
 
-        const rightWhite = new THREE.Mesh(
-            new THREE.SphereGeometry(0.13, 16, 12),
-            eyeWhiteMat
-        );
-        this.rightEyeGroup.add(rightWhite);
-
-        const rightIris = new THREE.Mesh(
-            new THREE.SphereGeometry(0.08, 12, 8),
-            irisMat
-        );
-        rightIris.position.z = 0.08;
-        this.rightEyeGroup.add(rightIris);
-
-        this.rightPupil = new THREE.Mesh(
-            new THREE.SphereGeometry(0.04, 8, 6),
-            pupilMat
-        );
-        this.rightPupil.position.z = 0.12;
-        this.rightEyeGroup.add(this.rightPupil);
-
-        const rightShine = new THREE.Mesh(
-            new THREE.SphereGeometry(0.02, 6, 4),
-            shineMat
-        );
-        rightShine.position.set(0.03, 0.03, 0.13);
-        this.rightEyeGroup.add(rightShine);
-
-        // Pálpebras
-        const lidMat = new THREE.MeshStandardMaterial({ color: 0xffdbcc, flatShading: true });
-
-        this.leftLid = new THREE.Mesh(
-            new THREE.BoxGeometry(0.3, 0.15, 0.08),
-            lidMat
-        );
-        this.leftLid.position.set(-0.28, 0.32, 0.62);
-        this.leftLid.scale.y = 0.01;
-
-        this.rightLid = new THREE.Mesh(
-            new THREE.BoxGeometry(0.3, 0.15, 0.08),
-            lidMat
-        );
-        this.rightLid.position.set(0.28, 0.32, 0.62);
-        this.rightLid.scale.y = 0.01;
-
-        this.head.add(this.leftEyeGroup, this.rightEyeGroup, this.leftLid, this.rightLid);
-    }
-
-    createBrows() {
-        const browMat = new THREE.MeshStandardMaterial({ color: 0x4a3020, flatShading: true });
-
-        this.leftBrow = new THREE.Mesh(
-            new THREE.BoxGeometry(0.2, 0.04, 0.04),
-            browMat
-        );
-        this.leftBrow.position.set(-0.28, 0.4, 0.62);
-        this.leftBrow.rotation.z = 0.1;
-
-        this.rightBrow = new THREE.Mesh(
-            new THREE.BoxGeometry(0.2, 0.04, 0.04),
-            browMat
-        );
-        this.rightBrow.position.set(0.28, 0.4, 0.62);
-        this.rightBrow.rotation.z = -0.1;
-
-        this.head.add(this.leftBrow, this.rightBrow);
-    }
-
-    createMouth() {
-        this.mouthGroup = new THREE.Group();
-        this.mouthGroup.position.set(0, -0.38, 0.6);
-
-        const lipMat = new THREE.MeshStandardMaterial({ color: 0xcc6666, flatShading: true });
-        const darkMat = new THREE.MeshStandardMaterial({ color: 0x330808 });
-
-        // Lábio superior
-        this.upperLip = new THREE.Mesh(
-            new THREE.BoxGeometry(0.4, 0.06, 0.1),
-            lipMat
-        );
-        this.upperLip.position.y = 0.05;
-
-        // Lábio inferior
-        this.lowerLip = new THREE.Mesh(
-            new THREE.BoxGeometry(0.4, 0.08, 0.1),
-            lipMat
-        );
-        this.lowerLip.position.y = -0.05;
-
-        // Interior
-        this.mouthInside = new THREE.Mesh(
-            new THREE.BoxGeometry(0.32, 0.02, 0.08),
-            darkMat
-        );
-        this.mouthInside.position.z = -0.02;
-
-        this.mouthGroup.add(this.upperLip, this.lowerLip, this.mouthInside);
-        this.head.add(this.mouthGroup);
-    }
-
-    createHair() {
-        const hairMat = new THREE.MeshStandardMaterial({ color: 0x3d2518, flatShading: true });
-
-        // Cabelo principal
-        const mainHair = new THREE.Mesh(
-            new THREE.IcosahedronGeometry(0.9, 0),
-            hairMat
-        );
-        mainHair.position.set(0, 0.5, -0.1);
-        mainHair.scale.set(1.1, 0.7, 0.95);
-        this.head.add(mainHair);
-
-        // Franja
-        for (let i = 0; i < 5; i++) {
-            const fringe = new THREE.Mesh(
-                new THREE.TetrahedronGeometry(0.18, 0),
-                hairMat
+                    // Setup animações se houver
+                    if (gltf.animations.length > 0) {
+                        this.mixer = new THREE.AnimationMixer(this.model);
+                    }
+                },
+                (progress) => {
+                    const percent = (progress.loaded / progress.total) * 100;
+                    console.log(`Carregando: ${percent.toFixed(0)}%`);
+                    if (this.loadingBar) {
+                        this.loadingBar.scale.x = percent / 100;
+                    }
+                },
+                (error) => {
+                    console.error('Erro ao carregar modelo:', error);
+                    // Manter fallback
+                    if (this.loadingBar) {
+                        this.loadingBar.material.color.setHex(0xff0000);
+                    }
+                }
             );
-            fringe.position.set((i - 2) * 0.22, 0.7, 0.45);
-            fringe.rotation.set(0.5, Math.random() * 0.3, (i - 2) * 0.1);
-            this.head.add(fringe);
-        }
-    }
-
-    createCheeks() {
-        const cheekMat = new THREE.MeshBasicMaterial({
-            color: 0xffaaaa,
-            transparent: true,
-            opacity: 0.3
-        });
-
-        const left = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 12, 8),
-            cheekMat
-        );
-        left.position.set(-0.5, -0.1, 0.55);
-        left.scale.z = 0.3;
-
-        const right = new THREE.Mesh(
-            new THREE.SphereGeometry(0.1, 12, 8),
-            cheekMat
-        );
-        right.position.set(0.5, -0.1, 0.55);
-        right.scale.z = 0.3;
-
-        this.head.add(left, right);
+        };
     }
 
     // =========================================================================
-    // Lip Sync
+    // Lip Sync com Morph Targets
     // =========================================================================
 
-    setViseme(v) {
-        this.targetViseme = v;
+    setViseme(viseme) {
+        this.targetViseme = viseme;
     }
 
     updateMouth() {
-        const t = this.getVisemeTargets(this.targetViseme);
-        const s = 0.2;
-
-        for (const k in this.currentWeights) {
-            this.currentWeights[k] += (t[k] - this.currentWeights[k]) * s;
+        if (!this.morphMesh || !this.morphDict) {
+            // Fallback para modelo procedural
+            return;
         }
 
-        const { mouthOpen, mouthWide, mouthRound, lipsClosed } = this.currentWeights;
+        const influences = this.morphMesh.morphTargetInfluences;
 
-        this.upperLip.position.y = 0.05 + mouthOpen * 0.1;
-        this.upperLip.scale.x = 1 + mouthWide * 0.2 - mouthRound * 0.2;
-
-        this.lowerLip.position.y = -0.05 - mouthOpen * 0.14;
-        this.lowerLip.scale.x = 1 + mouthWide * 0.2 - mouthRound * 0.2;
-
-        this.mouthInside.scale.y = 0.5 + mouthOpen * 6;
-
-        if (mouthRound > 0.5) {
-            this.upperLip.scale.x = 0.65;
-            this.lowerLip.scale.x = 0.65;
-        }
-
-        if (lipsClosed > 0.5) {
-            this.upperLip.position.y = 0.02;
-            this.lowerLip.position.y = -0.02;
-            this.mouthInside.scale.y = 0.3;
-        }
-    }
-
-    getVisemeTargets(v) {
-        const map = {
-            'X': { mouthOpen: 0, mouthWide: 0, mouthRound: 0, lipsClosed: 0 },
-            'A': { mouthOpen: 1.0, mouthWide: 0.6, mouthRound: 0, lipsClosed: 0 },
-            'E': { mouthOpen: 0.5, mouthWide: 0.8, mouthRound: 0, lipsClosed: 0 },
-            'I': { mouthOpen: 0.3, mouthWide: 0.9, mouthRound: 0, lipsClosed: 0 },
-            'O': { mouthOpen: 0.7, mouthWide: 0, mouthRound: 1.0, lipsClosed: 0 },
-            'U': { mouthOpen: 0.4, mouthWide: 0, mouthRound: 1.0, lipsClosed: 0 },
-            'M': { mouthOpen: 0, mouthWide: 0, mouthRound: 0, lipsClosed: 1.0 },
-            'F': { mouthOpen: 0.15, mouthWide: 0.4, mouthRound: 0, lipsClosed: 0.3 },
-            'L': { mouthOpen: 0.4, mouthWide: 0.5, mouthRound: 0, lipsClosed: 0 },
-            'S': { mouthOpen: 0.2, mouthWide: 0.7, mouthRound: 0, lipsClosed: 0 },
-            'R': { mouthOpen: 0.45, mouthWide: 0.3, mouthRound: 0.4, lipsClosed: 0 }
+        // Mapear visemas para morph targets do Ready Player Me
+        // O modelo usa Oculus Visemes ou ARKit
+        const visemeMap = {
+            'X': { viseme_sil: 1 },
+            'A': { viseme_aa: 1 },
+            'E': { viseme_E: 1 },
+            'I': { viseme_I: 1 },
+            'O': { viseme_O: 1 },
+            'U': { viseme_U: 1 },
+            'M': { viseme_PP: 1 },
+            'F': { viseme_FF: 1 },
+            'L': { viseme_nn: 1 },
+            'S': { viseme_SS: 1 },
+            'R': { viseme_RR: 1 }
         };
-        return map[v] || map['X'];
+
+        // Reset todos os visemas
+        const visemeKeys = ['viseme_sil', 'viseme_aa', 'viseme_E', 'viseme_I',
+            'viseme_O', 'viseme_U', 'viseme_PP', 'viseme_FF',
+            'viseme_nn', 'viseme_SS', 'viseme_RR', 'viseme_CH',
+            'viseme_TH', 'viseme_kk', 'viseme_DD'];
+
+        for (const key of visemeKeys) {
+            if (this.morphDict[key] !== undefined) {
+                const idx = this.morphDict[key];
+                const target = visemeMap[this.targetViseme]?.[key] || 0;
+                influences[idx] += (target - influences[idx]) * 0.3;
+            }
+        }
     }
 
     // =========================================================================
-    // Idle
+    // Idle Animations
     // =========================================================================
 
     updateIdle(dt) {
         this.time += dt;
 
-        // Movimento da cabeça
-        this.head.rotation.y = Math.sin(this.time * 0.4) * 0.05;
-        this.head.rotation.x = Math.sin(this.time * 0.25) * 0.02;
-
-        // Olhos
-        const ex = Math.sin(this.time * 0.5) * 0.02;
-        const ey = Math.sin(this.time * 0.35) * 0.015;
-        this.leftPupil.position.x = ex;
-        this.leftPupil.position.y = ey;
-        this.rightPupil.position.x = ex;
-        this.rightPupil.position.y = ey;
-
-        // Piscar
-        this.blinkTimer += dt;
-        if (this.blinkTimer >= this.nextBlink && !this.isBlinking) {
-            this.isBlinking = true;
-            this.blinkProgress = 0;
+        if (this.model) {
+            // Movimento suave da cabeça
+            this.model.rotation.y = Math.sin(this.time * 0.3) * 0.05;
+            this.model.rotation.x = Math.sin(this.time * 0.2) * 0.02;
         }
 
-        if (this.isBlinking) {
-            this.blinkProgress += dt * 10;
-            const b = Math.sin(this.blinkProgress * Math.PI);
+        if (this.fallbackHead) {
+            this.fallbackHead.rotation.y = Math.sin(this.time * 0.5) * 0.1;
+        }
 
-            this.leftLid.scale.y = b * 5;
-            this.rightLid.scale.y = b * 5;
-            this.leftLid.position.y = 0.32 - b * 0.14;
-            this.rightLid.position.y = 0.32 - b * 0.14;
-
-            if (this.blinkProgress >= 1) {
-                this.isBlinking = false;
-                this.blinkTimer = 0;
-                this.nextBlink = 2 + Math.random() * 3;
-                this.leftLid.scale.y = 0.01;
-                this.rightLid.scale.y = 0.01;
-            }
+        // Atualizar mixer de animações
+        if (this.mixer) {
+            this.mixer.update(dt);
         }
     }
 
+    // =========================================================================
+    // Animation Loop
+    // =========================================================================
+
     animate() {
-        const clock = new THREE.Clock();
         const loop = () => {
             requestAnimationFrame(loop);
-            const dt = clock.getDelta();
+            const dt = this.clock.getDelta();
             this.updateIdle(dt);
             this.updateMouth();
             this.renderer.render(this.scene, this.camera);
