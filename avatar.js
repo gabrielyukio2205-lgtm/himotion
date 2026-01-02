@@ -41,19 +41,19 @@ class Avatar3D {
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.container.appendChild(this.renderer.domElement);
 
-        // Iluminação mais suave
-        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+        // Iluminação - menos intensa para melhor contraste
+        const ambient = new THREE.AmbientLight(0xffffff, 0.35);
         this.scene.add(ambient);
 
-        const main = new THREE.DirectionalLight(0xffffff, 0.6);
+        const main = new THREE.DirectionalLight(0xffffff, 0.45);
         main.position.set(1, 2, 3);
         this.scene.add(main);
 
-        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.25);
+        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.15);
         fill.position.set(-2, 1, 2);
         this.scene.add(fill);
 
-        const rim = new THREE.DirectionalLight(0xffffff, 0.2);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.1);
         rim.position.set(0, 1, -2);
         this.scene.add(rim);
 
