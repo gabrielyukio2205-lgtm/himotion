@@ -20,6 +20,11 @@ class Avatar3D {
         this.targetMouseX = 0;
         this.targetMouseY = 0;
 
+        // Sistema de gestos
+        this.currentGesture = null;
+        this.gestureProgress = 0;
+        this.gestureSpeed = 2.0;
+
         this.init();
         this.loadVRM();
         this.setupMouseTracking();
@@ -205,6 +210,83 @@ class Avatar3D {
     }
 
     // =========================================================================
+    // Sistema de Gestos
+    // =========================================================================
+
+    playGesture(gesture) {
+        // Iniciar novo gesto
+        this.currentGesture = gesture;
+        this.gestureProgress = 0;
+        console.log(`Iniciando gesto: ${gesture}`);
+    }
+
+    updateGesture(dt) {
+        if (!this.currentGesture || !this.vrm) return;
+
+        const humanoid = this.vrm.humanoid;
+        this.gestureProgress += dt * this.gestureSpeed;
+
+        // Curva senoidal para movimento suave ida e volta
+        const wave = Math.sin(this.gestureProgress * Math.PI);
+
+        switch (this.currentGesture) {
+            case 'wave':
+                // Acenar: levantar braço direito e mover a mão
+                const rightUpperArm = humanoid?.getNormalizedBoneNode('rightUpperArm');
+                const rightLowerArm = humanoid?.getNormalizedBoneNode('rightLowerArm');
+                const rightHand = humanoid?.getNormalizedBoneNode('rightHand');
+
+                if (rightUpperArm) {
+                    // Levantar braço
+                    rightUpperArm.rotation.z = 0.6 - wave * 1.5;
+                    rightUpperArm.rotation.x = wave * 0.3;
+                }
+                if (rightLowerArm) {
+                    rightLowerArm.rotation.z = 0.2 - wave * 0.8;
+                }
+                if (rightHand) {
+                    // Balançar a mão
+                    rightHand.rotation.z = Math.sin(this.gestureProgress * 6) * 0.4;
+                }
+                break;
+
+            case 'nod':
+                // Acenar com a cabeça (sim)
+                const headNod = humanoid?.getNormalizedBoneNode('head');
+                if (headNod) {
+                    headNod.rotation.x = -wave * 0.15;
+                }
+                break;
+
+            case 'goodbye':
+                // Despedida: acenar mais lento + expressão
+                const rightArmBye = humanoid?.getNormalizedBoneNode('rightUpperArm');
+                const rightHandBye = humanoid?.getNormalizedBoneNode('rightHand');
+
+                if (rightArmBye) {
+                    rightArmBye.rotation.z = 0.6 - wave * 1.2;
+                }
+                if (rightHandBye) {
+                    rightHandBye.rotation.z = Math.sin(this.gestureProgress * 4) * 0.3;
+                }
+
+                // Expressão de felicidade
+                if (this.vrm.expressionManager) {
+                    try {
+                        this.vrm.expressionManager.setValue('happy', wave * 0.5);
+                    } catch (e) { }
+                }
+                break;
+        }
+
+        // Terminar gesto após 1 ciclo
+        if (this.gestureProgress >= 1) {
+            this.currentGesture = null;
+            this.gestureProgress = 0;
+        }
+    }
+
+    // =========================================================================
     // Idle Animations
     // =========================================================================
 
@@ -328,6 +410,7 @@ class Avatar3D {
             requestAnimationFrame(loop);
             const dt = this.clock.getDelta();
             this.updateIdle(dt);
+            this.updateGesture(dt);
             this.updateMouth();
             this.renderer.render(this.scene, this.camera);
         };

@@ -1,6 +1,10 @@
 /**
  * Chat Module - ES6 Module Version
+ * Com persistência de histórico e triggers de gestos
  */
+
+const STORAGE_KEY = 'avatar_chat_history';
+const MAX_STORED_MESSAGES = 100;
 
 class ChatApp {
     constructor() {
@@ -21,6 +25,9 @@ class ChatApp {
         this.statusText = document.getElementById('status-text');
         this.audioPlayer = document.getElementById('audio-player');
 
+        // Carregar histórico salvo
+        this.loadHistory();
+
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -39,6 +46,88 @@ class ChatApp {
         this.startLipSyncLoop();
     }
 
+    // =========================================================================
+    // Persistência de Histórico
+    // =========================================================================
+
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.history = data.history || [];
+
+                // Renderizar mensagens salvas
+                for (const msg of this.history) {
+                    this.addMessageToDOM(msg.content, msg.role === 'user');
+                }
+
+                console.log(`Histórico carregado: ${this.history.length} mensagens`);
+            }
+        } catch (e) {
+            console.error('Erro ao carregar histórico:', e);
+            this.history = [];
+        }
+    }
+
+    saveHistory() {
+        try {
+            // Limitar quantidade de mensagens
+            const toSave = this.history.slice(-MAX_STORED_MESSAGES);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                history: toSave,
+                savedAt: new Date().toISOString()
+            }));
+        } catch (e) {
+            console.error('Erro ao salvar histórico:', e);
+        }
+    }
+
+    clearHistory() {
+        this.history = [];
+        localStorage.removeItem(STORAGE_KEY);
+
+        // Limpar DOM exceto mensagem inicial
+        while (this.chatMessages.children.length > 1) {
+            this.chatMessages.removeChild(this.chatMessages.lastChild);
+        }
+
+        console.log('Histórico limpo');
+    }
+
+    // =========================================================================
+    // Triggers de Gestos
+    // =========================================================================
+
+    checkGestureTriggers(text) {
+        const lowerText = text.toLowerCase();
+
+        // Saudações - Avatar acena
+        if (/\b(oi|olá|ola|hey|hello|hi|bom dia|boa tarde|boa noite)\b/.test(lowerText)) {
+            this.triggerGesture('wave');
+        }
+
+        // Despedidas - Avatar se despede
+        if (/\b(tchau|adeus|até|ate|bye|goodbye|xau)\b/.test(lowerText)) {
+            this.triggerGesture('goodbye');
+        }
+
+        // Concordância - Avatar acena com cabeça
+        if (/\b(sim|claro|certo|ok|entendi|entendido|combinado)\b/.test(lowerText)) {
+            this.triggerGesture('nod');
+        }
+    }
+
+    triggerGesture(gesture) {
+        if (window.avatar && typeof window.avatar.playGesture === 'function') {
+            window.avatar.playGesture(gesture);
+        }
+    }
+
+    // =========================================================================
+    // UI
+    // =========================================================================
+
     startLipSyncLoop() {
         const syncLoop = () => {
             if (this.audioPlayer && !this.audioPlayer.paused && this.visemeTimeline.length > 0) {
@@ -53,7 +142,7 @@ class ChatApp {
         this.statusText.textContent = text;
     }
 
-    addMessage(content, isUser = false) {
+    addMessageToDOM(content, isUser = false) {
         if (!content || content.trim() === '') return null;
 
         const messageDiv = document.createElement('div');
@@ -62,6 +151,10 @@ class ChatApp {
         this.chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
         return messageDiv;
+    }
+
+    addMessage(content, isUser = false) {
+        return this.addMessageToDOM(content, isUser);
     }
 
     addTypingIndicator() {
@@ -96,6 +189,10 @@ class ChatApp {
         return div.innerHTML;
     }
 
+    // =========================================================================
+    // Enviar Mensagem
+    // =========================================================================
+
     async sendMessage() {
         const message = this.chatInput.value.trim();
         if (!message || this.isProcessing) return;
@@ -106,6 +203,10 @@ class ChatApp {
 
         this.addMessage(message, true);
         this.history.push({ role: 'user', content: message });
+        this.saveHistory();
+
+        // Verificar triggers de gestos na mensagem do usuário
+        this.checkGestureTriggers(message);
 
         this.addTypingIndicator();
         this.setStatus('Pensando...');
@@ -138,6 +239,10 @@ class ChatApp {
             if (data.text && data.text.trim() !== '') {
                 this.addMessage(data.text);
                 this.history.push({ role: 'assistant', content: data.text });
+                this.saveHistory();
+
+                // Verificar triggers de gestos na resposta do bot
+                this.checkGestureTriggers(data.text);
 
                 this.visemeTimeline = data.visemes || [];
 
@@ -201,6 +306,13 @@ class ChatApp {
         window.avatar.setViseme(currentViseme);
     }
 }
+
+// Expor função de limpar histórico globalmente
+window.clearChatHistory = () => {
+    if (window.chatApp) {
+        window.chatApp.clearHistory();
+    }
+};
 
 // Auto-inicializar
 if (document.readyState === 'loading') {
