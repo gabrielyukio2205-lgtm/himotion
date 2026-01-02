@@ -1,35 +1,26 @@
 /**
- * Chat Module - Handles communication with backend and lip sync (v2 - Fixed)
+ * Chat Module - ES6 Module Version
  */
 
 class ChatApp {
     constructor() {
-        // Backend URL - HuggingFace Space
         this.backendUrl = 'https://madras1-openada.hf.space';
 
         this.history = [];
         this.isProcessing = false;
-        this.avatar = null;
         this.audioPlayer = null;
         this.visemeTimeline = [];
-        this.audioStartTime = 0;
 
         this.init();
     }
 
     init() {
-        // Initialize avatar
-        const avatarContainer = document.getElementById('avatar-container');
-        this.avatar = new Avatar3D(avatarContainer);
-
-        // Get DOM elements
         this.chatMessages = document.getElementById('chat-messages');
         this.chatInput = document.getElementById('chat-input');
         this.sendBtn = document.getElementById('send-btn');
         this.statusText = document.getElementById('status-text');
         this.audioPlayer = document.getElementById('audio-player');
 
-        // Event listeners
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -38,7 +29,6 @@ class ChatApp {
             }
         });
 
-        // Audio events
         this.audioPlayer.addEventListener('play', () => this.onAudioPlay());
         this.audioPlayer.addEventListener('ended', () => this.onAudioEnded());
         this.audioPlayer.addEventListener('error', (e) => {
@@ -46,7 +36,6 @@ class ChatApp {
             this.setStatus('Erro no áudio');
         });
 
-        // Lip sync loop
         this.startLipSyncLoop();
     }
 
@@ -65,11 +54,7 @@ class ChatApp {
     }
 
     addMessage(content, isUser = false) {
-        // Não adiciona mensagem vazia
-        if (!content || content.trim() === '') {
-            console.warn('Tentativa de adicionar mensagem vazia');
-            return null;
-        }
+        if (!content || content.trim() === '') return null;
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
@@ -80,7 +65,6 @@ class ChatApp {
     }
 
     addTypingIndicator() {
-        // Remove qualquer indicador existente primeiro
         this.removeTypingIndicator();
 
         const messageDiv = document.createElement('div');
@@ -120,20 +104,16 @@ class ChatApp {
         this.sendBtn.disabled = true;
         this.chatInput.value = '';
 
-        // Add user message
         this.addMessage(message, true);
         this.history.push({ role: 'user', content: message });
 
-        // Show typing indicator
         this.addTypingIndicator();
         this.setStatus('Pensando...');
 
         try {
             const response = await fetch(`${this.backendUrl}/chat`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: message,
                     history: this.history.slice(-10)
@@ -153,19 +133,14 @@ class ChatApp {
 
             const data = await response.json();
 
-            // Remove typing indicator
             this.removeTypingIndicator();
 
-            // Verifica se tem texto válido
             if (data.text && data.text.trim() !== '') {
-                // Add bot message
                 this.addMessage(data.text);
                 this.history.push({ role: 'assistant', content: data.text });
 
-                // Setup lip sync
                 this.visemeTimeline = data.visemes || [];
 
-                // Play audio se tiver
                 if (data.audio_base64) {
                     this.setStatus('Falando...');
                     this.audioPlayer.src = `data:audio/mp3;base64,${data.audio_base64}`;
@@ -196,21 +171,21 @@ class ChatApp {
     }
 
     onAudioPlay() {
-        this.audioStartTime = performance.now();
+        // Audio started
     }
 
     onAudioEnded() {
-        this.avatar.setViseme('X');
+        if (window.avatar) {
+            window.avatar.setViseme('X');
+        }
         this.visemeTimeline = [];
         this.setStatus('Pronta para conversar');
     }
 
     syncLipSync() {
-        if (!this.visemeTimeline.length) return;
+        if (!this.visemeTimeline.length || !window.avatar) return;
 
         const currentTime = this.audioPlayer.currentTime;
-
-        // Find current viseme based on audio time
         let currentViseme = 'X';
 
         for (let i = 0; i < this.visemeTimeline.length; i++) {
@@ -223,11 +198,17 @@ class ChatApp {
             }
         }
 
-        this.avatar.setViseme(currentViseme);
+        window.avatar.setViseme(currentViseme);
     }
 }
 
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
+// Auto-inicializar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.chatApp = new ChatApp();
+    });
+} else {
     window.chatApp = new ChatApp();
-});
+}
+
+export { ChatApp };

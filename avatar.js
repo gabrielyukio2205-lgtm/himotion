@@ -1,15 +1,18 @@
 /**
- * 3D Avatar - VRM Model with Lip Sync (v6)
- * Suporta modelos VRoid/VRM com expressões faciais
+ * 3D Avatar - VRM Model with Lip Sync (v7)
+ * Usando módulos ES6 e versões compatíveis
  */
+
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 
 class Avatar3D {
     constructor(container) {
         this.container = container;
         this.targetViseme = 'X';
-        this.currentVisemeWeight = 0;
         this.vrm = null;
-        this.currentExpression = null;
+        this.mixer = null;
 
         this.init();
         this.loadVRM();
@@ -28,22 +31,22 @@ class Avatar3D {
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.container.appendChild(this.renderer.domElement);
 
-        // Iluminação otimizada pra anime
-        const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+        // Iluminação
+        const ambient = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambient);
 
-        const main = new THREE.DirectionalLight(0xffffff, 0.8);
+        const main = new THREE.DirectionalLight(0xffffff, 1.0);
         main.position.set(1, 2, 3);
         this.scene.add(main);
 
-        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.3);
+        const fill = new THREE.DirectionalLight(0x8b5cf6, 0.4);
         fill.position.set(-2, 1, 2);
         this.scene.add(fill);
 
-        const rim = new THREE.DirectionalLight(0xffffff, 0.4);
+        const rim = new THREE.DirectionalLight(0xffffff, 0.5);
         rim.position.set(0, 1, -2);
         this.scene.add(rim);
 
@@ -51,81 +54,85 @@ class Avatar3D {
 
         this.clock = new THREE.Clock();
         this.time = 0;
+        this.blinkTimer = 0;
+        this.nextBlink = 2 + Math.random() * 3;
 
         // Loading indicator
         this.createLoadingIndicator();
     }
 
     createLoadingIndicator() {
-        const geo = new THREE.RingGeometry(0.1, 0.12, 32);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x6366f1, side: THREE.DoubleSide });
+        const geo = new THREE.TorusGeometry(0.08, 0.015, 8, 32);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x6366f1 });
         this.loadingRing = new THREE.Mesh(geo, mat);
         this.loadingRing.position.set(0, 1.4, 0);
         this.scene.add(this.loadingRing);
     }
 
     async loadVRM() {
-        // Carregar scripts necessários
-        await this.loadScript('https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/loaders/GLTFLoader.js');
-        await this.loadScript('https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@1.0.0/lib/three-vrm.min.js');
+        const loader = new GLTFLoader();
 
-        const loader = new THREE.GLTFLoader();
+        // Registrar plugin VRM
+        loader.register((parser) => new VRMLoaderPlugin(parser));
 
-        // Tentar carregar o modelo local
         const modelPath = './avatar.vrm';
 
-        loader.load(
-            modelPath,
-            async (gltf) => {
-                // Remover loading indicator
-                this.scene.remove(this.loadingRing);
-
-                // Converter pra VRM
-                const vrm = await THREE.VRM.from(gltf);
-                this.vrm = vrm;
-
-                this.scene.add(vrm.scene);
-
-                // Rotacionar pra frente
-                vrm.scene.rotation.y = Math.PI;
-
-                console.log('VRM carregado!', vrm);
-                console.log('Expressões disponíveis:', vrm.expressionManager?.expressionMap);
-            },
-            (progress) => {
-                const percent = (progress.loaded / progress.total) * 100;
-                console.log(`Carregando: ${percent.toFixed(0)}%`);
-                if (this.loadingRing) {
-                    this.loadingRing.rotation.z = (percent / 100) * Math.PI * 2;
+        try {
+            const gltf = await loader.loadAsync(modelPath, (progress) => {
+                if (progress.total > 0) {
+                    const percent = (progress.loaded / progress.total) * 100;
+                    console.log(`Carregando: ${percent.toFixed(0)}%`);
                 }
-            },
-            (error) => {
-                console.error('Erro ao carregar VRM:', error);
-                this.showError('Coloque o arquivo avatar.vrm na pasta frontend/');
+                if (this.loadingRing) {
+                    this.loadingRing.rotation.z += 0.1;
+                }
+            });
+
+            // Remover loading
+            if (this.loadingRing) {
+                this.scene.remove(this.loadingRing);
+                this.loadingRing = null;
             }
-        );
+
+            const vrm = gltf.userData.vrm;
+
+            if (!vrm) {
+                throw new Error('Arquivo não é um VRM válido');
+            }
+
+            // Otimizar modelo
+            VRMUtils.removeUnnecessaryVertices(vrm.scene);
+            VRMUtils.removeUnnecessaryJoints(vrm.scene);
+
+            // Rotacionar pra frente
+            VRMUtils.rotateVRM0(vrm);
+
+            this.vrm = vrm;
+            this.scene.add(vrm.scene);
+
+            console.log('VRM carregado!', vrm);
+            console.log('Expressões:', Object.keys(vrm.expressionManager?.expressionMap || {}));
+
+        } catch (error) {
+            console.error('Erro ao carregar VRM:', error);
+            this.showFallback();
+        }
     }
 
-    loadScript(src) {
-        return new Promise((resolve, reject) => {
-            // Check if already loaded
-            if (document.querySelector(`script[src="${src}"]`)) {
-                resolve();
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-
-    showError(message) {
+    showFallback() {
+        // Mostrar avatar simples como fallback
         if (this.loadingRing) {
             this.loadingRing.material.color.setHex(0xff4444);
         }
-        console.error(message);
+
+        // Criar cabeça simples
+        const headGeo = new THREE.SphereGeometry(0.15, 16, 12);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbcc });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 1.4;
+        this.scene.add(head);
+
+        console.log('Usando avatar fallback. Verifique se avatar.vrm está na pasta correta.');
     }
 
     // =========================================================================
@@ -137,12 +144,11 @@ class Avatar3D {
     }
 
     updateMouth() {
-        if (!this.vrm || !this.vrm.expressionManager) return;
+        if (!this.vrm?.expressionManager) return;
 
         const em = this.vrm.expressionManager;
 
         // Mapear visemas para expressões VRM
-        // VRM usa: aa, ih, ou, ee, oh para vogais
         const visemeMap = {
             'X': null,
             'A': 'aa',
@@ -150,30 +156,29 @@ class Avatar3D {
             'I': 'ih',
             'O': 'oh',
             'U': 'ou',
-            'M': null,  // boca fechada
+            'M': null,
             'F': 'ih',
             'L': 'aa',
             'S': 'ih',
             'R': 'oh'
         };
 
-        // Reset todas as expressões de boca
+        // Fade out todas as expressões de boca
         const mouthExpressions = ['aa', 'ih', 'ou', 'ee', 'oh'];
         for (const expr of mouthExpressions) {
-            if (em.getValue(expr) !== undefined) {
+            try {
                 const current = em.getValue(expr) || 0;
-                em.setValue(expr, current * 0.7); // Fade out
-            }
+                em.setValue(expr, current * 0.7);
+            } catch (e) { }
         }
 
         // Aplicar viseme atual
         const targetExpr = visemeMap[this.targetViseme];
-        if (targetExpr && em.getValue(targetExpr) !== undefined) {
-            em.setValue(targetExpr, 0.8);
+        if (targetExpr) {
+            try {
+                em.setValue(targetExpr, 0.8);
+            } catch (e) { }
         }
-
-        // Atualizar expressões
-        em.update();
     }
 
     // =========================================================================
@@ -185,21 +190,18 @@ class Avatar3D {
 
         if (this.vrm) {
             // Movimento suave da cabeça
-            const head = this.vrm.humanoid?.getRawBoneNode('head');
+            const head = this.vrm.humanoid?.getNormalizedBoneNode('head');
             if (head) {
-                head.rotation.y = Math.sin(this.time * 0.3) * 0.05;
-                head.rotation.x = Math.sin(this.time * 0.2) * 0.03;
+                head.rotation.y = Math.sin(this.time * 0.3) * 0.04;
+                head.rotation.x = Math.sin(this.time * 0.2) * 0.02;
             }
 
-            // Piscar automático
-            if (this.vrm.expressionManager) {
-                const blinkCycle = Math.sin(this.time * 0.5);
-                if (blinkCycle > 0.98) {
-                    this.vrm.expressionManager.setValue('blink', 1);
-                } else {
-                    const current = this.vrm.expressionManager.getValue('blink') || 0;
-                    this.vrm.expressionManager.setValue('blink', current * 0.8);
-                }
+            // Piscar
+            this.blinkTimer += dt;
+            if (this.blinkTimer >= this.nextBlink) {
+                this.blinkTimer = 0;
+                this.nextBlink = 2 + Math.random() * 3;
+                this.doBlink();
             }
 
             // Atualizar VRM
@@ -208,8 +210,36 @@ class Avatar3D {
 
         // Loading animation
         if (this.loadingRing) {
-            this.loadingRing.rotation.z += dt * 2;
+            this.loadingRing.rotation.z += dt * 3;
         }
+    }
+
+    doBlink() {
+        if (!this.vrm?.expressionManager) return;
+
+        const em = this.vrm.expressionManager;
+
+        // Animação de piscar
+        let progress = 0;
+        const blinkAnimation = () => {
+            progress += 0.15;
+            const value = Math.sin(progress * Math.PI);
+
+            try {
+                em.setValue('blink', value);
+            } catch (e) {
+                try {
+                    em.setValue('blinkLeft', value);
+                    em.setValue('blinkRight', value);
+                } catch (e2) { }
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(blinkAnimation);
+            }
+        };
+
+        blinkAnimation();
     }
 
     // =========================================================================
@@ -236,4 +266,21 @@ class Avatar3D {
     }
 }
 
+// Exportar e inicializar
 window.Avatar3D = Avatar3D;
+
+// Auto-inicializar quando DOM carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAvatar);
+} else {
+    initAvatar();
+}
+
+function initAvatar() {
+    const container = document.getElementById('avatar-container');
+    if (container) {
+        window.avatar = new Avatar3D(container);
+    }
+}
+
+export { Avatar3D };

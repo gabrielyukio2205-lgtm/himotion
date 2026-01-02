@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Left: 3D Avatar -->
@@ -17,14 +19,14 @@
                 <span id="status-text">Pronta para conversar</span>
             </div>
         </div>
-        
+
         <!-- Right: Chat -->
         <div class="chat-section">
             <div class="chat-header">
                 <h1>💬 Avatar Chat</h1>
                 <p>Converse com a assistente virtual</p>
             </div>
-            
+
             <div class="chat-messages" id="chat-messages">
                 <div class="message bot">
                     <div class="message-content">
@@ -32,31 +34,35 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="chat-input-container">
-                <input 
-                    type="text" 
-                    id="chat-input" 
-                    placeholder="Digite sua mensagem..."
-                    autocomplete="off"
-                >
+                <input type="text" id="chat-input" placeholder="Digite sua mensagem..." autocomplete="off">
                 <button id="send-btn" title="Enviar">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                     </svg>
                 </button>
             </div>
         </div>
     </div>
-    
+
     <!-- Hidden audio player -->
     <audio id="audio-player"></audio>
-    
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
+
+    <!-- Importmap para módulos ES6 -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.154.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.154.0/examples/jsm/",
+            "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.0.6/lib/three-vrm.module.min.js"
+        }
+    }
+    </script>
+
     <!-- App modules -->
-    <script src="avatar.js"></script>
-    <script src="chat.js"></script>
+    <script type="module" src="avatar.js"></script>
+    <script type="module" src="chat.js"></script>
 </body>
+
 </html>
