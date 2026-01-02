@@ -189,11 +189,51 @@ class Avatar3D {
         this.time += dt;
 
         if (this.vrm) {
+            const humanoid = this.vrm.humanoid;
+
             // Movimento suave da cabeça
-            const head = this.vrm.humanoid?.getNormalizedBoneNode('head');
+            const head = humanoid?.getNormalizedBoneNode('head');
             if (head) {
                 head.rotation.y = Math.sin(this.time * 0.3) * 0.04;
                 head.rotation.x = Math.sin(this.time * 0.2) * 0.02;
+            }
+
+            // Movimento do tronco (respiração)
+            const spine = humanoid?.getNormalizedBoneNode('spine');
+            if (spine) {
+                spine.rotation.x = Math.sin(this.time * 1.2) * 0.01;
+            }
+
+            // Braço esquerdo
+            const leftUpperArm = humanoid?.getNormalizedBoneNode('leftUpperArm');
+            const leftLowerArm = humanoid?.getNormalizedBoneNode('leftLowerArm');
+            if (leftUpperArm) {
+                leftUpperArm.rotation.z = 0.3 + Math.sin(this.time * 0.4) * 0.03;
+                leftUpperArm.rotation.x = Math.sin(this.time * 0.35 + 0.5) * 0.02;
+            }
+            if (leftLowerArm) {
+                leftLowerArm.rotation.y = Math.sin(this.time * 0.5) * 0.02;
+            }
+
+            // Braço direito
+            const rightUpperArm = humanoid?.getNormalizedBoneNode('rightUpperArm');
+            const rightLowerArm = humanoid?.getNormalizedBoneNode('rightLowerArm');
+            if (rightUpperArm) {
+                rightUpperArm.rotation.z = -0.3 + Math.sin(this.time * 0.4 + 1) * 0.03;
+                rightUpperArm.rotation.x = Math.sin(this.time * 0.35 + 1.5) * 0.02;
+            }
+            if (rightLowerArm) {
+                rightLowerArm.rotation.y = Math.sin(this.time * 0.5 + 0.5) * 0.02;
+            }
+
+            // Mãos (movimento sutil dos dedos se disponível)
+            const leftHand = humanoid?.getNormalizedBoneNode('leftHand');
+            const rightHand = humanoid?.getNormalizedBoneNode('rightHand');
+            if (leftHand) {
+                leftHand.rotation.z = Math.sin(this.time * 0.6) * 0.05;
+            }
+            if (rightHand) {
+                rightHand.rotation.z = Math.sin(this.time * 0.6 + 0.5) * 0.05;
             }
 
             // Piscar
