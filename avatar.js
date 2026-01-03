@@ -284,6 +284,35 @@ class Avatar3D {
                     } catch (e) { }
                 }
                 break;
+
+            case 'thinking':
+                // Pose de pensamento: mão no queixo
+                const thinkUpperArm = humanoid?.getNormalizedBoneNode('rightUpperArm');
+                const thinkLowerArm = humanoid?.getNormalizedBoneNode('rightLowerArm');
+                const thinkHand = humanoid?.getNormalizedBoneNode('rightHand');
+                const thinkHead = humanoid?.getNormalizedBoneNode('head');
+
+                // Levantar braço e dobrar cotovelo pra trazer mão ao rosto
+                if (thinkUpperArm) {
+                    thinkUpperArm.rotation.z = 0.6 - wave * 1.0;
+                    thinkUpperArm.rotation.x = wave * 0.5;
+                    thinkUpperArm.rotation.y = -wave * 0.3;
+                }
+                if (thinkLowerArm) {
+                    thinkLowerArm.rotation.z = 0.2 - wave * 1.2;
+                    thinkLowerArm.rotation.y = wave * 0.4;
+                }
+                if (thinkHand) {
+                    // Mão levemente fechada no queixo
+                    thinkHand.rotation.x = wave * 0.3;
+                    thinkHand.rotation.z = wave * 0.2;
+                }
+                if (thinkHead) {
+                    // Inclinar cabeça pro lado pensativo
+                    thinkHead.rotation.z = wave * 0.08;
+                    thinkHead.rotation.x = wave * 0.05;
+                }
+                break;
         }
 
         // Terminar gesto após 1 ciclo

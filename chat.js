@@ -281,6 +281,9 @@ class ChatApp {
         this.addTypingIndicator();
         this.setStatus('Pensando...');
 
+        // Gesto de pensamento enquanto espera
+        this.triggerGesture('thinking');
+
         try {
             const response = await fetch(`${this.backendUrl}/chat`, {
                 method: 'POST',
