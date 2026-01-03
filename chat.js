@@ -1,6 +1,6 @@
 /**
- * Chat Module - ES6 Module Version
- * Com persistência de histórico e triggers de gestos
+ * Chat Module - Apple Style
+ * Com persistência de histórico e UX melhorado
  */
 
 const STORAGE_KEY = 'avatar_chat_history';
@@ -31,8 +31,11 @@ class ChatApp {
         // Setup quick actions
         this.setupQuickActions();
 
+        // Setup input auto-resize
+        this.setupAutoResize();
+
         this.sendBtn.addEventListener('click', () => this.sendMessage());
-        this.chatInput.addEventListener('keypress', (e) => {
+        this.chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 this.sendMessage();
@@ -63,10 +66,26 @@ class ChatApp {
                 const message = btn.dataset.message;
                 if (message) {
                     this.chatInput.value = message;
-                    this.sendMessage();
+                    this.chatInput.style.height = 'auto';
+                    this.chatInput.focus();
                 }
             }
         });
+    }
+
+    // =========================================================================
+    // Auto-resize textarea
+    // =========================================================================
+
+    setupAutoResize() {
+        if (!this.chatInput) return;
+
+        const autoResize = () => {
+            this.chatInput.style.height = 'auto';
+            this.chatInput.style.height = Math.min(this.chatInput.scrollHeight, 120) + 'px';
+        };
+
+        this.chatInput.addEventListener('input', autoResize);
     }
 
     // =========================================================================
@@ -177,8 +196,10 @@ class ChatApp {
 
         messageDiv.innerHTML = `
             <div class="message-content">${this.escapeHtml(content)}</div>
-            <div class="message-time">${timeStr}</div>
-            ${isUser ? '<div class="message-status sent"></div>' : ''}
+            <div class="message-meta">
+                <span class="message-time">${timeStr}</span>
+                ${isUser ? '<span class="message-status sent"></span>' : ''}
+            </div>
         `;
         this.chatMessages.appendChild(messageDiv);
         this.scrollToBottom();
@@ -232,6 +253,7 @@ class ChatApp {
         this.isProcessing = true;
         this.sendBtn.disabled = true;
         this.chatInput.value = '';
+        this.chatInput.style.height = 'auto';
 
         this.addMessage(message, true);
         this.history.push({ role: 'user', content: message });

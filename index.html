@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Avatar Chat</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -23,29 +23,30 @@
         <!-- Right: Chat -->
         <div class="chat-section">
             <div class="chat-header">
-                <h1>💬 Avatar Chat</h1>
-                <p>Converse com a assistente virtual</p>
+                <h1>Ada</h1>
+                <p>Assistente Virtual</p>
             </div>
 
             <div class="chat-messages" id="chat-messages">
                 <div class="message bot">
                     <div class="message-content">
-                        Olá! Sou sua assistente virtual. Como posso ajudar você hoje?
+                        Olá! Sou Ada, sua assistente virtual. Como posso ajudar você hoje?
                     </div>
                 </div>
             </div>
 
             <div class="quick-actions" id="quick-actions">
-                <button class="quick-btn" data-message="Olá! Como você está?">Olá! 👋</button>
-                <button class="quick-btn" data-message="Me conta uma piada">Conta uma piada 😄</button>
-                <button class="quick-btn" data-message="O que você sabe fazer?">O que você faz? 🤔</button>
-                <button class="quick-btn" data-message="Qual é a sua função?">Sua função ❓</button>
+                <button class="quick-btn" data-message="Olá! Como você está?">👋 Oi</button>
+                <button class="quick-btn" data-message="Me conta uma piada">😂 Piada</button>
+                <button class="quick-btn" data-message="O que você sabe fazer?">✨ O que faz?</button>
+                <button class="quick-btn" data-message="Qual é a sua função?">❓ Função</button>
             </div>
 
             <div class="chat-input-container">
-                <input type="text" id="chat-input" placeholder="Digite sua mensagem..." autocomplete="off">
+                <textarea type="text" id="chat-input" placeholder="Mensagem..." rows="1" autocomplete="off"></textarea>
                 <button id="send-btn" title="Enviar">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                        stroke-linejoin="round">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
                     </svg>
                 </button>
