@@ -167,6 +167,22 @@ class ChatApp {
     }
 
     // =========================================================================
+    // Triggers de Expressões Faciais
+    // =========================================================================
+
+    checkExpressionTriggers(text) {
+        if (!window.avatar) return;
+
+        // Usar a função detectEmotion do avatar se disponível
+        if (typeof window.avatar.detectEmotion === 'function') {
+            const emotion = window.avatar.detectEmotion(text);
+            if (emotion !== 'neutral') {
+                window.avatar.setExpression(emotion, 3.0, 0.6);
+            }
+        }
+    }
+
+    // =========================================================================
     // UI
     // =========================================================================
 
@@ -295,8 +311,9 @@ class ChatApp {
                 this.history.push({ role: 'assistant', content: data.text });
                 this.saveHistory();
 
-                // Verificar triggers de gestos na resposta do bot
+                // Verificar triggers de gestos e expressões na resposta do bot
                 this.checkGestureTriggers(data.text);
+                this.checkExpressionTriggers(data.text);
 
                 this.visemeTimeline = data.visemes || [];
 

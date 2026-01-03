@@ -25,6 +25,13 @@ class Avatar3D {
         this.gestureProgress = 0;
         this.gestureSpeed = 2.0;
 
+        // Sistema de expressões faciais
+        this.currentExpression = 'neutral';
+        this.targetExpression = 'neutral';
+        this.expressionIntensity = 0;
+        this.expressionDuration = 0;
+        this.expressionTimer = 0;
+
         this.init();
         this.loadVRM();
         this.setupMouseTracking();
@@ -287,6 +294,89 @@ class Avatar3D {
     }
 
     // =========================================================================
+    // Sistema de Expressões Faciais
+    // =========================================================================
+
+    /**
+     * Define uma expressão facial temporária
+     * @param {string} expression - happy, sad, surprised, angry, relaxed, neutral
+     * @param {number} duration - duração em segundos (0 = permanente)
+     * @param {number} intensity - intensidade 0-1
+     */
+    setExpression(expression, duration = 2.0, intensity = 0.7) {
+        this.targetExpression = expression;
+        this.expressionDuration = duration;
+        this.expressionTimer = 0;
+        this.expressionIntensity = intensity;
+        console.log(`Expressão: ${expression} (${duration}s, ${intensity})`);
+    }
+
+    updateExpression(dt) {
+        if (!this.vrm?.expressionManager) return;
+
+        const em = this.vrm.expressionManager;
+
+        // Mapeamento de nomes para expressões VRM
+        const expressionMap = {
+            'happy': 'happy',
+            'sad': 'sad',
+            'surprised': 'surprised',
+            'angry': 'angry',
+            'relaxed': 'relaxed',
+            'neutral': null
+        };
+
+        // Atualizar timer
+        if (this.expressionDuration > 0) {
+            this.expressionTimer += dt;
+            if (this.expressionTimer >= this.expressionDuration) {
+                this.targetExpression = 'neutral';
+                this.expressionIntensity = 0;
+            }
+        }
+
+        // Aplicar expressão com fade
+        const allExpressions = ['happy', 'sad', 'surprised', 'angry', 'relaxed'];
+
+        for (const expr of allExpressions) {
+            try {
+                const current = em.getValue(expr) || 0;
+                const target = (expressionMap[this.targetExpression] === expr)
+                    ? this.expressionIntensity
+                    : 0;
+
+                // Interpolação suave
+                const newValue = current + (target - current) * 0.1;
+                em.setValue(expr, newValue);
+            } catch (e) { }
+        }
+    }
+
+    /**
+     * Analisa texto e detecta emoção
+     */
+    detectEmotion(text) {
+        const lowerText = text.toLowerCase();
+
+        // Padrões de emoção
+        const emotions = {
+            'happy': /😊|😄|😁|🥰|❤️|haha|kk|rsrs|legal|ótimo|maravilh|feliz|amo|adoro|obrigad|perfeito|incrível|show|massa|top|bacana|sensacional/,
+            'sad': /😢|😭|😔|triste|pena|desculp|sinto muito|lamento|infelizmente|ruim|péssimo|chateado/,
+            'surprised': /😮|😲|🤯|😱|nossa|uau|wow|caramba|sério\?|mesmo\?|verdade\?|não acredito|incrível/,
+            'angry': /😠|😡|🤬|raiva|irritado|absurdo|ridículo|inaceitável|odeio/,
+            'relaxed': /😌|🙂|tranquilo|calma|relaxa|suave|de boa|ok|tudo bem|entendi/
+        };
+
+        for (const [emotion, pattern] of Object.entries(emotions)) {
+            if (pattern.test(lowerText)) {
+                return emotion;
+            }
+        }
+
+        return 'neutral';
+    }
+
+    // =========================================================================
     // Idle Animations
     // =========================================================================
 
@@ -411,6 +501,7 @@ class Avatar3D {
             const dt = this.clock.getDelta();
             this.updateIdle(dt);
             this.updateGesture(dt);
+            this.updateExpression(dt);
             this.updateMouth();
             this.renderer.render(this.scene, this.camera);
         };
